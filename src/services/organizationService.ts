@@ -112,8 +112,8 @@ class OrganizationService {
       if (response.success && response.data) {
         console.log('Organization created successfully:', response.data);
         
-        // After creating the organization, update the current user to join it
-        await this.joinOrganization(response.data.id);
+        // After creating the organization, assign the current user to it
+        await this.assignUserToOrganization(response.data.id);
         
         return response.data;
       }
@@ -212,44 +212,43 @@ class OrganizationService {
   }
 
   /**
-   * Join an organization by updating the current user's organisation_id
+   * Assign current user to an organization using the assign-organisation endpoint
    */
-  async joinOrganization(organizationId: number): Promise<void> {
+  async assignUserToOrganization(organizationId: number): Promise<void> {
     try {
       const currentUser = authService.getStoredUser();
       if (!currentUser) {
         throw new Error('User not authenticated');
       }
 
-      console.log('Joining organization', organizationId, 'for user', currentUser.id);
+      console.log('Assigning user', currentUser.id, 'to organization', organizationId);
       
-      // Update the user with the new organisation_id
-      const userUpdateData = {
-        id: currentUser.id,
-        name: currentUser.name,
-        email: currentUser.email,
-        email_verified_at: currentUser.email_verified_at,
-        created_at: currentUser.created_at,
-        updated_at: currentUser.updated_at,
+      // Use the assign-organisation endpoint
+      const assignData = {
         organisation_id: organizationId,
-        first_time_login: currentUser.first_time_login,
-        refresh_token: currentUser.refresh_token,
       };
 
-      const response = await httpClient.put(`/users/${currentUser.id}`, userUpdateData);
+      const response = await httpClient.put(`/users/${currentUser.id}/assign-organisation`, assignData);
       
       if (response.success && response.data) {
         // Update the stored user data
-        authService.getStoredUser = () => response.data;
-        localStorage.setItem('gdpilia-user', JSON.stringify(response.data));
-        console.log('Successfully joined organization');
+        authService.updateStoredUser(response.data);
+        console.log('Successfully assigned user to organization');
       } else {
-        throw new Error(response.message || 'Failed to join organization');
+        throw new Error(response.message || 'Failed to assign user to organization');
       }
     } catch (error) {
-      console.error('Join organization error:', error);
+      console.error('Assign user to organization error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Join an organization by updating the current user's organisation_id
+   * @deprecated Use assignUserToOrganization instead
+   */
+  async joinOrganization(organizationId: number): Promise<void> {
+    return this.assignUserToOrganization(organizationId);
   }
 
   /**
